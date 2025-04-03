@@ -1,6 +1,8 @@
-# Example Prompts for Claude
+# Example Prompts
 
 Here are some examples of how to prompt an LLM to use the telnet tools effectively:
+
+**NOTE**: Some prompt smay include passwords. Do not include login credentials while working with a non-local LLM (Anthropic Claude, Google Gemini, OpenAI, etc.)
 
 ## Connecting to a MUD and Exploring
 
