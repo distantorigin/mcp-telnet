@@ -146,8 +146,9 @@ Environment variables can override default settings:
 - Login sequences use exact text matching and may time out with unexpected server responses
 - Session logs can grow large with regular use (there is no log rotation implemented)
 - ANSI control codes may appear in text output
-- Telnet protocol only, no secure telnet yet
+- **DO NOT** ever provide credentials to an LLM in plain text, with the exception of local AI that you control. If you must provide credentials, use the telnet server on port 9000 to log yourself in once Claude has initiated the connection, entering them yourself out of band.
+- Plain telnet protocol only, no secure telnet yet
 
-## Contributing.
+## Contributing
 
 MCP-Telnet was designed as a prototype and I have very little use for it in my day-to-day. As such, this is a side project, and is primarily AIGC. Thus, maintenance may be erratic and, depending on my current mood towards the ethical quandaries of generative AI, may be taken down at any time. I will make an effort to respond to and address all issues and pull requests, but there are no guarantees.
