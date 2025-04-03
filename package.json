@@ -24,15 +24,14 @@
     "terminal",
     "network"
   ],
-  "author": "Tristan",
+  "author": "distantorigin",
   "repository": {
     "type": "git",
-    "url": "https://github.com/t3nsor/mcp-telnet.git"
+    "url": "https://github.com/distantorigin/mcp-telnet.git"
   },
   "bugs": {
-    "url": "https://github.com/t3nsor/mcp-telnet/issues"
+    "url": "https://github.com/distantorigin/mcp-telnet/issues"
   },
-  "homepage": "https://github.com/t3nsor/mcp-telnet#readme",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.8.0",
@@ -40,6 +39,6 @@
   },
   "devDependencies": {
     "@types/node": "^20.9.0",
-    "typescript": "^5.2.2"
+    "typescript": "^5.8.2"
   }
 }
