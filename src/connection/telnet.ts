@@ -45,6 +45,9 @@ let telnetClient: net.Socket | null = null;
 // Timer for keep-alive mechanism
 let keepAliveTimer: NodeJS.Timeout | null = null;
 
+// Track active reconnection timers to prevent leaks
+const activeReconnectionTimers = new Set<NodeJS.Timeout>();
+
 // The keep-alive interval and reconnection settings are defined in config/constants.js
 
 // Connect to a telnet server
@@ -146,9 +149,11 @@ export async function connect(host: string, port: number, connectionName: string
         
         // Try to reconnect in the background if this wasn't a manual disconnect
         if (currentHost && currentPort) {
-          setTimeout(() => {
+          const reconnectTimer = setTimeout(() => {
+            activeReconnectionTimers.delete(reconnectTimer);
             attemptReconnect(currentHost, currentPort, currentName);
           }, RECONNECT_INITIAL_DELAY);  // Wait before first reconnect attempt
+          activeReconnectionTimers.add(reconnectTimer);
         }
         
         // Update saved connections
@@ -197,9 +202,11 @@ export async function connect(host: string, port: number, connectionName: string
         
         // Try to reconnect in the background
         if (currentHost && currentPort) {
-          setTimeout(() => {
+          const reconnectTimer = setTimeout(() => {
+            activeReconnectionTimers.delete(reconnectTimer);
             attemptReconnect(currentHost, currentPort, currentName);
           }, RECONNECT_INITIAL_DELAY);  // Wait before first reconnect attempt
+          activeReconnectionTimers.add(reconnectTimer);
         }
         
         // Update saved connections
@@ -230,9 +237,11 @@ export async function connect(host: string, port: number, connectionName: string
         // Try to reconnect in the background if this wasn't a manual disconnect
         // and if we were previously connected (to avoid reconnecting after manual disconnect)
         if (wasConnected && currentHost && currentPort) {
-          setTimeout(() => {
+          const reconnectTimer = setTimeout(() => {
+            activeReconnectionTimers.delete(reconnectTimer);
             attemptReconnect(currentHost, currentPort, currentName);
           }, RECONNECT_INITIAL_DELAY);  // Wait before first reconnect attempt
+          activeReconnectionTimers.add(reconnectTimer);
         }
         
         // Update saved connections
@@ -275,8 +284,8 @@ export async function disconnect(): Promise<{ success: boolean, message: string 
     const port = connectionState.port;
     const name = connectionState.name;
     
-    // Stop keep-alive
-    stopKeepAlive();
+    // Clean up all timers
+    cleanupTimers();
     
     logSessionEvent(SessionEventType.DISCONNECTION, `Disconnected from ${host}:${port} (${name})`);
     endSession();
@@ -677,7 +686,19 @@ function stopKeepAlive(): void {
   }
 }
 
-// Attempt to reconnect if disconnected unexpectedly
+// Clean up all active timers
+function cleanupTimers(): void {
+  stopKeepAlive();
+  
+  // Clear all active reconnection timers
+  for (const timer of activeReconnectionTimers) {
+    clearTimeout(timer);
+  }
+  activeReconnectionTimers.clear();
+  log("All timers cleaned up");
+}
+
+// Attempt to reconnect if disconnected unexpectedly with exponential backoff
 async function attemptReconnect(host: string, port: number, name: string): Promise<void> {
   let attempts = 0;
   
@@ -696,8 +717,14 @@ async function attemptReconnect(host: string, port: number, name: string): Promi
       log(`Reconnection attempt failed: ${message}`);
     }
     
-    // Wait before next attempt (increasing backoff)
-    await new Promise(resolve => setTimeout(resolve, 2000 * attempts));
+    // Exponential backoff: 2^attempts * base delay (1000ms), capped at 30 seconds
+    const baseDelay = 1000;
+    const exponentialDelay = Math.min(baseDelay * Math.pow(2, attempts - 1), 30000);
+    const jitter = Math.random() * 1000; // Add jitter to prevent thundering herd
+    const totalDelay = exponentialDelay + jitter;
+    
+    log(`Waiting ${Math.round(totalDelay)}ms before next reconnection attempt`);
+    await new Promise(resolve => setTimeout(resolve, totalDelay));
   }
   
   log(`Failed to reconnect after ${MAX_RECONNECT_ATTEMPTS} attempts`);

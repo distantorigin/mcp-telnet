@@ -14,8 +14,9 @@ export interface ConnectionState {
 // Maximum response buffer size to prevent memory exhaustion (256KB)
 const MAX_RESPONSE_BUFFER_SIZE = 256 * 1024;
 
-// Connection state
+// Connection state with mutex-like protection
 export let responseBuffer = "";
+let isUpdatingState = false;
 export let connectionState: ConnectionState = {
   isConnected: false,
   host: "",
@@ -33,9 +34,21 @@ export function getConnectionState(): ConnectionState {
   return { ...connectionState };
 }
 
-// Update connection state
+// Update connection state with race condition protection
 export function setConnectionState(newState: Partial<ConnectionState>): void {
-  connectionState = { ...connectionState, ...newState };
+  // Simple semaphore to prevent concurrent state updates
+  if (isUpdatingState) {
+    // If already updating, queue this update by setting a timeout
+    setTimeout(() => setConnectionState(newState), 0);
+    return;
+  }
+  
+  isUpdatingState = true;
+  try {
+    connectionState = { ...connectionState, ...newState };
+  } finally {
+    isUpdatingState = false;
+  }
 }
 
 // Clear the response buffer
