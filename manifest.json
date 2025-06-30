@@ -1,0 +1,127 @@
+{
+  "dxt_version": "0.1",
+  "name": "mcp-telnet",
+  "version": "0.4.0",
+  "display_name": "MCP Telnet Server",
+  "description": "MCP server for interacting with telnet-accessible systems like MUDs, BBSs, and legacy servers",
+  "long_description": "# MCP Telnet Server\n\nThe MCP Telnet Server enables Claude to connect to and interact with telnet-accessible systems including:\n\n- Multi-User Dungeons (MUDs)\n- Bulletin Board Systems (BBSs) \n- Legacy network services\n- Terminal-based applications\n- Network equipment consoles\n\n## Features\n\n- **Secure Connections**: Identity verification and input sanitization\n- **Session Management**: Automatic reconnection and session logging\n- **Command Sequencing**: Send multiple commands with timing controls\n- **Connection Memory**: Save frequently used connections\n- **Robust Error Handling**: Buffer overflow protection and timeout management\n\n## Tools Available\n\n- `connect_telnet`: Connect to telnet servers by name or host/port\n- `send_command`: Send commands with configurable timeouts\n- `get_buffer`: Retrieve current response buffer\n- `connection_status`: Check connection state and toggle continuous mode\n- `disconnect_telnet`: Clean disconnect from servers\n- `list_saved_connections`: View saved connection profiles\n- `get_session_logs`: Retrieve session history\n- `update_connection_memory`: Save notes about connections\n- `get_connection_memory`: Retrieve connection notes\n- `wait`: Pause execution for specified time\n- `sequence_commands`: Execute multiple commands with delays\n- `set_llm_identity`: Configure LLM identity for server identification\n- `get_llm_identity`: View current LLM identity\n\n## Security\n\n- Input sanitization prevents command injection\n- Buffer overflow protection\n- Bounded response buffers (256KB limit)\n- Configurable timeout limits (1s - 5min)\n- Connection rate limiting",
+  "author": {
+    "name": "distantorigin",
+    "url": "https://github.com/distantorigin/mcp-telnet"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/distantorigin/mcp-telnet"
+  },
+  "homepage": "https://github.com/distantorigin/mcp-telnet",
+  "documentation": "https://github.com/distantorigin/mcp-telnet#readme",
+  "support": "https://github.com/distantorigin/mcp-telnet/issues",
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"],
+      "env": {
+        "DEFAULT_TIMEOUT": "${user_config.default_timeout}",
+        "KEEP_ALIVE_INTERVAL": "${user_config.keep_alive_interval}",
+        "MAX_RECONNECT_ATTEMPTS": "${user_config.max_reconnect_attempts}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "connect_telnet",
+      "description": "Connect to a telnet server by name or host/port"
+    },
+    {
+      "name": "send_command", 
+      "description": "Send a command to the telnet server"
+    },
+    {
+      "name": "get_buffer",
+      "description": "Get the current response buffer without sending a command"
+    },
+    {
+      "name": "connection_status",
+      "description": "Get the current status of the telnet connection"
+    },
+    {
+      "name": "disconnect_telnet",
+      "description": "Disconnect from the telnet server"
+    },
+    {
+      "name": "list_saved_connections",
+      "description": "List all saved connections"
+    },
+    {
+      "name": "get_session_logs",
+      "description": "Get telnet session logs with clear session boundaries"
+    },
+    {
+      "name": "update_connection_memory",
+      "description": "Update memory for a saved connection"
+    },
+    {
+      "name": "get_connection_memory",
+      "description": "Get memory information for a saved connection"
+    },
+    {
+      "name": "wait",
+      "description": "Wait for a specified number of seconds before the next command"
+    },
+    {
+      "name": "sequence_commands",
+      "description": "Send a sequence of commands with delays between them"
+    },
+    {
+      "name": "set_llm_identity",
+      "description": "Set the identity of the connected LLM"
+    },
+    {
+      "name": "get_llm_identity",
+      "description": "Get the current identity of the connected LLM"
+    }
+  ],
+  "prompts": [
+    {
+      "name": "connect_mud",
+      "description": "Connect to a MUD and get started with basic commands",
+      "text": "Help me connect to a MUD (Multi-User Dungeon). First, use set_llm_identity to identify yourself, then connect to a MUD server. Show me basic commands like 'look', 'who', and 'help'."
+    },
+    {
+      "name": "troubleshoot_connection",
+      "description": "Help troubleshoot telnet connection issues",
+      "text": "I'm having trouble connecting to a telnet server. Please help me troubleshoot by checking the connection status, verifying the host and port, and testing basic connectivity."
+    }
+  ],
+  "compatibility": {
+    "node": ">=20.0.0"
+  },
+  "user_config": {
+    "default_timeout": {
+      "type": "number",
+      "title": "Default Command Timeout",
+      "description": "Default timeout for telnet commands in milliseconds",
+      "default": 30000,
+      "minimum": 1000,
+      "maximum": 300000
+    },
+    "keep_alive_interval": {
+      "type": "number",
+      "title": "Keep-Alive Interval",
+      "description": "Interval for keep-alive packets in milliseconds",
+      "default": 15000,
+      "minimum": 5000,
+      "maximum": 60000
+    },
+    "max_reconnect_attempts": {
+      "type": "number", 
+      "title": "Max Reconnection Attempts",
+      "description": "Maximum number of automatic reconnection attempts",
+      "default": 3,
+      "minimum": 0,
+      "maximum": 10
+    }
+  }
+}
