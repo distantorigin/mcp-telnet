@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { log } from "../utils/logging.js";
 import { sendCommand } from "../connection/index.js";
-import { DEFAULT_TIMEOUT } from "../config/index.js";
+import { DEFAULT_TIMEOUT, MAX_TIMEOUT } from "../config/constants.js";
 
 /**
  * Handle the wait tool
@@ -57,7 +57,7 @@ export async function handleSequenceCommandsTool(args: Record<string, unknown>) 
     
     // Parse and validate the commands array and timeout
     const commandsArray = z.array(commandSchema).parse(args.commands || []);
-    const defaultTimeout = z.number().default(DEFAULT_TIMEOUT).parse(args.timeout);
+    const defaultTimeout = z.number().min(1000).max(MAX_TIMEOUT).default(DEFAULT_TIMEOUT).parse(args.timeout);
     
     // Execute commands sequentially with delays
     const resultTexts: string[] = [];

@@ -3,6 +3,9 @@
 // Default timeout for telnet operations in milliseconds (30 seconds)
 export const DEFAULT_TIMEOUT = 30000;
 
+// Maximum safe timeout value (5 minutes) to prevent hanging operations
+export const MAX_TIMEOUT = 300000;
+
 // Keep-alive interval in milliseconds (15 seconds)
 export const KEEP_ALIVE_INTERVAL = 15000;
 
