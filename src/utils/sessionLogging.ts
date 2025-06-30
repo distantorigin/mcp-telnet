@@ -38,7 +38,10 @@ export enum SessionEventType {
   TIMEOUT = 'TIMEOUT',
   MODE_CHANGE = 'MODE_CHANGE',
   CONFIG_CHANGE = 'CONFIG_CHANGE',
-  SYSTEM = 'SYSTEM'
+  SYSTEM = 'SYSTEM',
+  SSL_HANDSHAKE = 'SSL_HANDSHAKE',
+  SSL_CERTIFICATE = 'SSL_CERTIFICATE',
+  SSL_ERROR = 'SSL_ERROR'
 }
 
 // Generate a timestamp in ISO8601 format

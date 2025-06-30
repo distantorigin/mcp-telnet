@@ -1,4 +1,5 @@
 import * as net from 'net';
+import * as tls from 'tls';
 import { 
   connectionState, 
   setConnectionState, 
@@ -17,7 +18,20 @@ import {
 } from '../config/constants.js';
 import { saveSavedConnections } from '../config/loader.js';
 import { log } from '../utils/logging.js';
-import { ConnectionError, TimeoutError, NotConnectedError, IdentityError, formatError, sanitizeCommand, sanitizeForLogging } from '../utils/errors.js';
+import { 
+  ConnectionError, 
+  TimeoutError, 
+  NotConnectedError, 
+  IdentityError, 
+  TLSError,
+  CertificateError,
+  HandshakeError,
+  formatError, 
+  formatSSLError,
+  isSSLError,
+  sanitizeCommand, 
+  sanitizeForLogging 
+} from '../utils/errors.js';
 import { SavedConnection } from '../config/types.js';
 import { 
   startSession, 
@@ -27,6 +41,17 @@ import {
 } from '../utils/sessionLogging.js';
 import { getPackageVersion } from '../utils/version.js';
 import { getLLMIdentityString, isLLMIdentified } from '../config/identity.js';
+
+// TLS options interface for SSL/TLS connections
+interface TLSOptions {
+  tls?: boolean;
+  rejectUnauthorized?: boolean;
+  servername?: string;
+  ca?: string;
+  cert?: string;
+  key?: string;
+  passphrase?: string;
+}
 
 // Unpack telnet constants for easier access
 const { 
@@ -55,7 +80,12 @@ const activeReconnectionTimers = new Set<NodeJS.Timeout>();
 // This is our main connection function - it handles the initial connection,
 // sets up event handlers, and manages timeouts. We use the connectionName
 // as a key for reconnection and session management.
-export async function connect(host: string, port: number, connectionName: string = ""): Promise<{ success: boolean, message: string }> {
+export async function connect(
+  host: string, 
+  port: number, 
+  connectionName: string = "",
+  tlsOptions?: TLSOptions
+): Promise<{ success: boolean, message: string }> {
   // Check if LLM identity is set
   if (!isLLMIdentified()) {
     const error = new IdentityError("LLM identity not set. Please use set_llm_identity tool before connecting.");
@@ -75,7 +105,31 @@ export async function connect(host: string, port: number, connectionName: string
   return new Promise((resolve) => {
     try {
       clearResponseBuffer();
-      telnetClient = net.createConnection({ host, port }, () => {
+      
+      // Create socket based on TLS options
+      let socket: net.Socket;
+      
+      if (tlsOptions?.tls) {
+        // TLS connection
+        socket = tls.connect({
+          host,
+          port,
+          rejectUnauthorized: tlsOptions.rejectUnauthorized ?? true,
+          servername: tlsOptions.servername || host,
+          ca: tlsOptions.ca,
+          cert: tlsOptions.cert,
+          key: tlsOptions.key,
+          passphrase: tlsOptions.passphrase
+        });
+      } else {
+        // Plain TCP connection
+        socket = net.createConnection({ host, port });
+      }
+      
+      telnetClient = socket;
+      
+      // Setup connection handler
+      const handleConnection = () => {
         setConnectionState({
           isConnected: true,
           host,
@@ -84,18 +138,72 @@ export async function connect(host: string, port: number, connectionName: string
           lastCommand: "",
           lastResponse: "",
           name: connectionName || `${host}:${port}`,
+          useTLS: tlsOptions?.tls || false,
         });
         
         // Start a new session log
         startSession(connectionState.name, host, port);
-        logSessionEvent(SessionEventType.CONNECTION, `Connected to ${host}:${port} as "${connectionState.name}"`);
+        const connectionType = tlsOptions?.tls ? 'SSL/TLS' : 'plain';
+        logSessionEvent(SessionEventType.CONNECTION, `Connected to ${host}:${port} as "${connectionState.name}" (${connectionType})`);
         
         // Send initial telnet negotiation to identify as MCP-Telnet with LLM identity
         sendIdentification();
         
-        log(`Connected to ${host}:${port} as "${connectionState.name}"`);
-        resolve({ success: true, message: `Successfully connected to ${host}:${port}` });
-      });
+        log(`Connected to ${host}:${port} as "${connectionState.name}" (${connectionType})`);
+        resolve({ success: true, message: `Successfully connected to ${host}:${port} using ${connectionType}` });
+      };
+      
+      // Setup event handlers based on connection type
+      if (tlsOptions?.tls) {
+        socket.on('secureConnect', () => {
+          const tlsSocket = socket as tls.TLSSocket;
+          
+          // Update connection state with SSL info
+          const sslInfo = {
+            authorized: tlsSocket.authorized,
+            authorizationError: tlsSocket.authorizationError,
+            protocol: tlsSocket.getProtocol(),
+            cipher: tlsSocket.getCipher(),
+            certificate: tlsSocket.getPeerCertificate()
+          };
+          
+          setConnectionState({
+            sslInfo: sslInfo
+          });
+          
+          // Log SSL connection details
+          log(`SSL/TLS connection established. Protocol: ${sslInfo.protocol}, Authorized: ${sslInfo.authorized}`);
+          logSessionEvent(SessionEventType.SSL_HANDSHAKE, `SSL/TLS handshake completed. Protocol: ${sslInfo.protocol}`);
+          
+          if (sslInfo.certificate && typeof sslInfo.certificate === 'object') {
+            const cert = sslInfo.certificate;
+            const certInfo = `Subject: ${cert.subject?.CN || 'Unknown'}, Issuer: ${cert.issuer?.CN || 'Unknown'}, Valid until: ${cert.valid_to || 'Unknown'}`;
+            logSessionEvent(SessionEventType.SSL_CERTIFICATE, `Certificate details: ${certInfo}`);
+          }
+          
+          if (sslInfo.authorizationError) {
+            log(`Certificate authorization error: ${sslInfo.authorizationError}`, 'warn');
+            logSessionEvent(SessionEventType.SSL_ERROR, `Certificate authorization failed: ${sslInfo.authorizationError}`);
+          } else if (sslInfo.authorized) {
+            logSessionEvent(SessionEventType.SSL_CERTIFICATE, 'Certificate validation: PASSED');
+          }
+          
+          handleConnection();
+        });
+        
+        socket.on('tlsClientError', (err) => {
+          const sslError = HandshakeError.createFromHandshakeError(err, host, port);
+          log(`TLS client error: ${sslError.message}`, 'error');
+          logSessionEvent(SessionEventType.SSL_ERROR, `TLS client error: ${sslError.message}`);
+          setConnectionState({
+            lastError: sslError.message,
+            isConnected: false
+          });
+          resolve({ success: false, message: sslError.message });
+        });
+      } else {
+        socket.on('connect', handleConnection);
+      }
 
       telnetClient.setTimeout(DEFAULT_TIMEOUT);
       
@@ -121,8 +229,24 @@ export async function connect(host: string, port: number, connectionName: string
         const currentPort = connectionState.port;
         const currentName = connectionState.name;
         
-        // Create proper error object
-        const connectionError = new ConnectionError(err.message, currentHost, currentPort);
+        // Create appropriate error object based on error type
+        let connectionError: ConnectionError;
+        
+        if (tlsOptions?.tls && isSSLError(err)) {
+          // Handle SSL-specific errors
+          const errorMessage = err.message.toLowerCase();
+          
+          if (errorMessage.includes('cert') || errorMessage.includes('certificate')) {
+            connectionError = CertificateError.createFromAuthError(err.message, currentHost, currentPort);
+          } else if (errorMessage.includes('handshake') || errorMessage.includes('ssl') || errorMessage.includes('tls')) {
+            connectionError = HandshakeError.createFromHandshakeError(err, currentHost, currentPort);
+          } else {
+            connectionError = new TLSError(err.message, currentHost, currentPort);
+          }
+        } else {
+          // Standard connection error
+          connectionError = new ConnectionError(err.message, currentHost, currentPort);
+        }
         
         setConnectionState({
           lastError: connectionError.message,
@@ -131,13 +255,15 @@ export async function connect(host: string, port: number, connectionName: string
         
         // Check if there's any buffered content to include with the error
         const bufferedContent = getResponseBuffer();
-        log(`Connection error: ${err.message}`, 'error');
+        const connectionType = tlsOptions?.tls ? 'SSL/TLS' : 'plain';
+        log(`${connectionType} connection error: ${connectionError.message}`, 'error');
         
         // Include buffered content in the error log if available
+        const eventType = (tlsOptions?.tls && isSSLError(err)) ? SessionEventType.SSL_ERROR : SessionEventType.ERROR;
         if (bufferedContent.length > 0) {
-          logSessionEvent(SessionEventType.ERROR, `Connection error: ${err.message}\nBuffer content at time of error (${bufferedContent.length} bytes):\n${bufferedContent}`);
+          logSessionEvent(eventType, `${connectionType} connection error: ${connectionError.message}\nBuffer content at time of error (${bufferedContent.length} bytes):\n${bufferedContent}`);
         } else {
-          logSessionEvent(SessionEventType.ERROR, `Connection error: ${err.message}`);
+          logSessionEvent(eventType, `${connectionType} connection error: ${connectionError.message}`);
         }
         if (!telnetClient?.destroyed) {
           telnetClient?.destroy();
@@ -165,7 +291,7 @@ export async function connect(host: string, port: number, connectionName: string
           }
         }
         
-        resolve({ success: false, message: `Connection error: ${err.message}` });
+        resolve({ success: false, message: connectionError.message });
       });
 
       telnetClient.on('timeout', () => {
@@ -175,7 +301,8 @@ export async function connect(host: string, port: number, connectionName: string
         const currentName = connectionState.name;
         
         // Create timeout error object
-        const timeoutError = new TimeoutError("Connection timed out", connectionState.lastCommand);
+        const connectionType = tlsOptions?.tls ? 'SSL/TLS' : 'plain';
+        const timeoutError = new TimeoutError(`${connectionType} connection timed out`, connectionState.lastCommand);
         
         setConnectionState({
           lastError: timeoutError.message,
@@ -184,13 +311,13 @@ export async function connect(host: string, port: number, connectionName: string
         
         // Check if there's any buffered content to include with the timeout
         const bufferedContent = getResponseBuffer();
-        log("Connection timed out", 'warn');
+        log(`${connectionType} connection timed out`, 'warn');
         
         // Include buffered content in the timeout log if available
         if (bufferedContent.length > 0) {
-          logSessionEvent(SessionEventType.TIMEOUT, `Connection timed out\nBuffer content at time of timeout (${bufferedContent.length} bytes):\n${bufferedContent}`);
+          logSessionEvent(SessionEventType.TIMEOUT, `${connectionType} connection timed out\nBuffer content at time of timeout (${bufferedContent.length} bytes):\n${bufferedContent}`);
         } else {
-          logSessionEvent(SessionEventType.TIMEOUT, "Connection timed out");
+          logSessionEvent(SessionEventType.TIMEOUT, `${connectionType} connection timed out`);
         }
         if (!telnetClient?.destroyed) {
           telnetClient?.destroy();

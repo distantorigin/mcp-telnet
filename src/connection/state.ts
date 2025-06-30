@@ -9,6 +9,23 @@ export interface ConnectionState {
   name: string;
   continuousEngagementActive: boolean;
   defaultDelay: number;
+  
+  // SSL/TLS connection information
+  /** Whether this connection is using TLS/SSL encryption */
+  useTLS?: boolean;
+  /** SSL/TLS connection details and certificate information */
+  sslInfo?: {
+    /** Whether the SSL certificate is authorized/valid */
+    authorized: boolean;
+    /** Authorization error message if certificate validation failed */
+    authorizationError?: string;
+    /** SSL/TLS protocol version (e.g., 'TLSv1.3') */
+    protocol?: string;
+    /** Cipher suite information */
+    cipher?: any;
+    /** Peer certificate details */
+    certificate?: any;
+  };
 }
 
 // Maximum response buffer size to prevent memory exhaustion (256KB)
@@ -27,6 +44,8 @@ export let connectionState: ConnectionState = {
   name: "",
   continuousEngagementActive: false,
   defaultDelay: 0,
+  useTLS: false,
+  sslInfo: undefined,
 };
 
 // Get a copy of the current connection state

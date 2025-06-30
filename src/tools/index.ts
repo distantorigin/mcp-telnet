@@ -73,7 +73,7 @@ export function registerTools(server: Server): void {
         // Telnet connection tools
         {
           name: "connect_telnet",
-          description: "Connect to a telnet server by name or host/port",
+          description: "Connect to a telnet server by name or host/port. Supports both plain telnet and SSL/TLS encrypted connections.",
           inputSchema: {
             type: "object",
             properties: {
@@ -93,6 +93,19 @@ export function registerTools(server: Server): void {
               saveName: {
                 type: "string",
                 description: "Name to save this connection as (for new connections)"
+              },
+              tls: {
+                type: "boolean",
+                description: "Enable SSL/TLS encryption (default: false)",
+                default: false
+              },
+              rejectUnauthorized: {
+                type: "boolean",
+                description: "Verify SSL/TLS certificates (default: true when tls is enabled)"
+              },
+              servername: {
+                type: "string",
+                description: "Server name for SNI (Server Name Indication) - defaults to host"
               }
             },
             // No required fields to allow connecting by name OR host

@@ -23,8 +23,14 @@ export async function handleConnectTool(args: Record<string, unknown>) {
       name: z.string().optional(),
       host: z.string().optional(),
       port: z.number().default(23).optional(),
-      saveName: z.string().optional()
+      saveName: z.string().optional(),
+      tls: z.boolean().default(false).optional(),
+      rejectUnauthorized: z.boolean().optional(),
+      servername: z.string().optional()
     }).parse(args);
+    
+    // Set default for rejectUnauthorized based on tls
+    const rejectUnauthorized = params.rejectUnauthorized ?? (params.tls ? true : undefined);
     
     // Check if we're connecting by name to a saved connection
     if (params.name) {
@@ -44,7 +50,18 @@ export async function handleConnectTool(args: Record<string, unknown>) {
         };
       }
       
-      const result = await connect(savedConnection.host, savedConnection.port, savedConnection.name);
+      // Extract TLS options from saved connection
+      const tlsOptions = {
+        tls: savedConnection.tls,
+        rejectUnauthorized: savedConnection.rejectUnauthorized,
+        servername: savedConnection.servername,
+        ca: savedConnection.ca,
+        cert: savedConnection.cert,
+        key: savedConnection.key,
+        passphrase: savedConnection.passphrase
+      };
+      
+      const result = await connect(savedConnection.host, savedConnection.port, savedConnection.name, tlsOptions);
       
       // Update saved connection status if successful
       if (result.success) {
@@ -89,7 +106,14 @@ export async function handleConnectTool(args: Record<string, unknown>) {
     // Use saveName if provided, otherwise host:port
     const connectionName = params.saveName || `${params.host}:${params.port}`;
     
-    const result = await connect(params.host, params.port || 23, connectionName);
+    // Create TLS options object for new connection
+    const tlsOptions = {
+      tls: params.tls,
+      rejectUnauthorized: rejectUnauthorized,
+      servername: params.servername
+    };
+    
+    const result = await connect(params.host, params.port || 23, connectionName, tlsOptions);
 
     // Add to saved connections if successful
     if (result.success) {
@@ -102,12 +126,15 @@ export async function handleConnectTool(args: Record<string, unknown>) {
         // Update existing connection
         savedConnections[existingIndex].isActive = true;
       } else {
-        // Add new connection
+        // Add new connection with TLS settings
         savedConnections.push({
           name: connectionName,
           host: params.host,
           port: params.port || 23,
-          isActive: true
+          isActive: true,
+          tls: params.tls,
+          rejectUnauthorized: rejectUnauthorized,
+          servername: params.servername
         });
       }
       
