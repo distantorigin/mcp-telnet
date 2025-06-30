@@ -80,3 +80,28 @@ export function formatError(error: unknown): string {
   
   return String(error);
 }
+
+/**
+ * Sanitize user input for telnet commands
+ * Removes potentially dangerous control characters but preserves command content
+ */
+export function sanitizeCommand(command: string): string {
+  // Remove dangerous control characters except carriage return and line feed
+  // Keep printable ASCII and common unicode characters
+  // Allow tabs (0x09) as they're commonly used in commands
+  return command.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+}
+
+/**
+ * Validate that a string is safe for logging and display
+ */
+export function sanitizeForLogging(text: string): string {
+  // Replace control characters with visible representations
+  return text.replace(/[\x00-\x1F\x7F]/g, (char) => {
+    const code = char.charCodeAt(0);
+    if (code === 9) return '\\t';    // Tab
+    if (code === 10) return '\\n';   // Line feed
+    if (code === 13) return '\\r';   // Carriage return
+    return `\\x${code.toString(16).padStart(2, '0')}`;
+  });
+}

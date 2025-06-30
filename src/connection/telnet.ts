@@ -17,7 +17,7 @@ import {
 } from '../config/constants.js';
 import { saveSavedConnections } from '../config/loader.js';
 import { log } from '../utils/logging.js';
-import { ConnectionError, TimeoutError, NotConnectedError, IdentityError, formatError } from '../utils/errors.js';
+import { ConnectionError, TimeoutError, NotConnectedError, IdentityError, formatError, sanitizeCommand, sanitizeForLogging } from '../utils/errors.js';
 import { SavedConnection } from '../config/types.js';
 import { 
   startSession, 
@@ -106,7 +106,7 @@ export async function connect(host: string, port: number, connectionName: string
         if (processedData.length > 0) {
           const text = processedData.toString();
           appendToResponseBuffer(text);
-          log(`Received: ${text}`);
+          log(`Received: ${sanitizeForLogging(text)}`);
           // Don't log raw data packets here as they'll be combined in the final response
           // which will be logged by the sendCommand function
         }
@@ -314,14 +314,20 @@ export async function sendCommand(command: string, timeout = DEFAULT_TIMEOUT): P
     }
 
     try {
+      // Sanitize the command for security
+      const sanitizedCommand = sanitizeCommand(command);
+      if (sanitizedCommand !== command) {
+        log(`Command sanitized: removed ${command.length - sanitizedCommand.length} characters`, 'warn');
+      }
+
       // Clear the buffer first
       clearResponseBuffer();
-      setConnectionState({ lastCommand: command });
+      setConnectionState({ lastCommand: sanitizedCommand });
 
-      // Send the command
-      telnetClient.write(`${command}\r\n`);
-      log(`Sent: ${command}`);
-      logSessionEvent(SessionEventType.COMMAND, `Sent command (${command.length} bytes):\n${command}`);
+      // Send the sanitized command
+      telnetClient.write(`${sanitizedCommand}\r\n`);
+      log(`Sent: ${sanitizeForLogging(sanitizedCommand)}`);
+      logSessionEvent(SessionEventType.COMMAND, `Sent command (${sanitizedCommand.length} bytes):\n${sanitizeForLogging(sanitizedCommand)}`);
 
       // Set up a timeout for the response
       const timeoutId = setTimeout(() => {
@@ -410,9 +416,18 @@ export function isTelnetClientConnected(): boolean {
   return telnetClient !== null && !telnetClient.destroyed && connectionState.isConnected;
 }
 
+// Maximum buffer size to prevent memory exhaustion (1MB)
+const MAX_BUFFER_SIZE = 1024 * 1024;
+
 // Process telnet commands from incoming data
 function processTelnetCommands(data: Buffer): Buffer {
-  const processed = Buffer.alloc(data.length * 2); // Allocate more space than needed
+  // Prevent processing oversized buffers
+  if (data.length > MAX_BUFFER_SIZE) {
+    log(`Warning: Dropping oversized buffer (${data.length} bytes)`, 'warn');
+    return Buffer.alloc(0);
+  }
+  
+  const processed = Buffer.alloc(Math.min(data.length * 2, MAX_BUFFER_SIZE)); // Safe allocation with bounds
   let processedIndex = 0;
   let i = 0;
   
@@ -471,8 +486,14 @@ function processTelnetCommands(data: Buffer): Buffer {
         }
       }
     } else {
-      // Regular data, copy to processed buffer
-      processed[processedIndex++] = data[i++];
+      // Regular data, copy to processed buffer with bounds check
+      if (processedIndex < processed.length) {
+        processed[processedIndex++] = data[i++];
+      } else {
+        // Buffer full, skip remaining data and log warning
+        log(`Warning: Processed buffer full, dropping ${data.length - i} bytes`, 'warn');
+        break;
+      }
     }
   }
   
