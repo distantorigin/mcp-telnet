@@ -108,7 +108,7 @@ export async function handleConnectTool(args: Record<string, unknown>) {
     
     // Create TLS options object for new connection
     const tlsOptions = {
-      tls: params.tls,
+      tls: params.tls || false,
       rejectUnauthorized: rejectUnauthorized,
       servername: params.servername
     };
@@ -132,7 +132,7 @@ export async function handleConnectTool(args: Record<string, unknown>) {
           host: params.host,
           port: params.port || 23,
           isActive: true,
-          tls: params.tls,
+          tls: params.tls || false,
           rejectUnauthorized: rejectUnauthorized,
           servername: params.servername
         });

@@ -49,6 +49,17 @@ connect_telnet with: {
 }
 ```
 
+For SSL/TLS encrypted connections:
+
+```
+connect_telnet with: {
+  "host": "chatmud.com",
+  "port": 7443,
+  "tls": true,
+  "saveName": "ChatMUD-secure"
+}
+```
+
 Or connect using a saved connection:
 
 ```
@@ -62,6 +73,7 @@ Parameters:
 - `port`: Port number, defaults to 23 if not specified
 - `saveName`: Name to save this connection as (optional)
 - `name`: Name of a previously saved connection to use
+- `tls`: Enable SSL/TLS encryption for secure connections (optional, defaults to false)
 
 ### disconnect_telnet
 

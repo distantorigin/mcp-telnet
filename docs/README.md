@@ -147,7 +147,6 @@ Environment variables can override default settings:
 - Session logs can grow large with regular use (there is no log rotation implemented)
 - ANSI control codes may appear in text output
 - **DO NOT** ever provide credentials to an LLM in plain text, with the exception of local AI that you control. If you must provide credentials, use the telnet server on port 9000 to log yourself in once Claude has initiated the connection, entering them yourself out of band.
-- Plain telnet protocol only, no secure telnet yet
 
 ## Contributing
 

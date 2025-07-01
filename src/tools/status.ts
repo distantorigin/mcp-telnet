@@ -42,6 +42,22 @@ export async function handleConnectionStatusTool(args: any = {}) {
   // Get the updated state
   const updatedState = getConnectionState();
   
+  // Prepare SSL information for display
+  const sslStatus = updatedState.useTLS ? {
+    tlsEnabled: true,
+    protocol: updatedState.sslInfo?.protocol || 'Unknown',
+    authorized: updatedState.sslInfo?.authorized || false,
+    authorizationError: updatedState.sslInfo?.authorizationError || null,
+    cipherSuite: updatedState.sslInfo?.cipher ? 
+      `${updatedState.sslInfo.cipher.name} (${updatedState.sslInfo.cipher.version})` : 
+      'Unknown',
+    certificateSubject: updatedState.sslInfo?.certificate?.subject?.CN || 'Unknown',
+    certificateIssuer: updatedState.sslInfo?.certificate?.issuer?.CN || 'Unknown',
+    certificateValidUntil: updatedState.sslInfo?.certificate?.valid_to || 'Unknown'
+  } : {
+    tlsEnabled: false
+  };
+
   const status = {
     isConnected: updatedState.isConnected,
     host: updatedState.host,
@@ -52,7 +68,8 @@ export async function handleConnectionStatusTool(args: any = {}) {
     lastResponsePreview: updatedState.lastResponse.substring(0, 200) + 
       (updatedState.lastResponse.length > 200 ? "..." : ""),
     continuousModeEnabled: updatedState.continuousEngagementActive,
-    defaultDelay: updatedState.defaultDelay || 0
+    defaultDelay: updatedState.defaultDelay || 0,
+    ssl: sslStatus
   };
   
   return {

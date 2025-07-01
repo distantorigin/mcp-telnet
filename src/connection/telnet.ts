@@ -161,8 +161,8 @@ export async function connect(
           // Update connection state with SSL info
           const sslInfo = {
             authorized: tlsSocket.authorized,
-            authorizationError: tlsSocket.authorizationError,
-            protocol: tlsSocket.getProtocol(),
+            authorizationError: tlsSocket.authorizationError?.message,
+            protocol: tlsSocket.getProtocol() || undefined,
             cipher: tlsSocket.getCipher(),
             certificate: tlsSocket.getPeerCertificate()
           };
@@ -529,10 +529,22 @@ export async function reconnectToActiveConnections(): Promise<void> {
     
     // Connect to the first active connection
     const conn = activeConnections[0];
-    log(`Attempting to reconnect to ${conn.name} (${conn.host}:${conn.port})`, 'info');
+    const connectionType = conn.tls ? 'SSL/TLS' : 'plain';
+    log(`Attempting to reconnect to ${conn.name} (${conn.host}:${conn.port}) using ${connectionType}`, 'info');
+    
+    // Extract TLS options from saved connection
+    const tlsOptions = {
+      tls: conn.tls,
+      rejectUnauthorized: conn.rejectUnauthorized,
+      servername: conn.servername,
+      ca: conn.ca,
+      cert: conn.cert,
+      key: conn.key,
+      passphrase: conn.passphrase
+    };
     
     try {
-      await connect(conn.host, conn.port, conn.name);
+      await connect(conn.host, conn.port, conn.name, tlsOptions);
     } catch (error) {
       const errorMessage = formatError(error);
       log(`Failed to reconnect: ${errorMessage}`, 'error');
@@ -829,14 +841,27 @@ function cleanupTimers(): void {
 async function attemptReconnect(host: string, port: number, name: string): Promise<void> {
   let attempts = 0;
   
+  // Find the saved connection to retrieve TLS settings
+  const savedConnection = savedConnections.find((conn: SavedConnection) => conn.name === name);
+  const tlsOptions = savedConnection ? {
+    tls: savedConnection.tls,
+    rejectUnauthorized: savedConnection.rejectUnauthorized,
+    servername: savedConnection.servername,
+    ca: savedConnection.ca,
+    cert: savedConnection.cert,
+    key: savedConnection.key,
+    passphrase: savedConnection.passphrase
+  } : undefined;
+  
   while (attempts < MAX_RECONNECT_ATTEMPTS) {
     attempts++;
-    log(`Reconnection attempt ${attempts}/${MAX_RECONNECT_ATTEMPTS} to ${name} (${host}:${port})`);
+    const connectionType = tlsOptions?.tls ? 'SSL/TLS' : 'plain';
+    log(`Reconnection attempt ${attempts}/${MAX_RECONNECT_ATTEMPTS} to ${name} (${host}:${port}) using ${connectionType}`);
     
     try {
-      const result = await connect(host, port, name);
+      const result = await connect(host, port, name, tlsOptions);
       if (result.success) {
-        log(`Successfully reconnected to ${name} (${host}:${port})`);
+        log(`Successfully reconnected to ${name} (${host}:${port}) using ${connectionType}`);
         return;
       }
     } catch (error) {
