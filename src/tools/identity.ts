@@ -12,7 +12,7 @@ export async function handleSetLLMIdentityTool(args: Record<string, unknown>) {
     const version = z.string().optional().parse(args.version);
     const provider = z.string().optional().parse(args.provider);
     const capabilities = z.array(z.string()).optional().parse(args.capabilities);
-    const metadata = z.record(z.string()).optional().parse(args.metadata);
+    const metadata = z.record(z.string(), z.string()).optional().parse(args.metadata);
     
     // Create the partial identity object
     const partialIdentity: any = {};
