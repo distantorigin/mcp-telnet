@@ -1,12 +1,13 @@
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { z } from "zod";
 import { handleConnectTool } from './connect.js';
 import { handleCommandTool } from './command.js';
 import { handleConnectionStatusTool, handleBufferTool } from './status.js';
 import { handleDisconnectTool } from './disconnect.js';
 import { handleListSavedConnectionsTool } from './connections.js';
 import { handleSessionLogsTool } from './logs.js';
-import { 
+import {
   handleUpdateConnectionMemoryTool,
   handleGetConnectionMemoryTool
 } from './connection-memory.js';
@@ -19,318 +20,186 @@ import {
   handleSequenceCommandsTool
 } from './time.js';
 
-// Register all tools with the MCP server
-export function registerTools(server: Server): void {
-  // Register tool list handler
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return {
-      tools: [
-        // Identity tools
-        {
-          name: "set_llm_identity",
-          description: "Set the identity of the connected LLM",
-          inputSchema: {
-            type: "object",
-            properties: {
-              name: {
-                type: "string",
-                description: "Name of the LLM (e.g., 'Claude', 'GPT', etc.)"
-              },
-              version: {
-                type: "string",
-                description: "Version of the LLM (e.g., '3.7 Sonnet', '4', etc.)"
-              },
-              provider: {
-                type: "string",
-                description: "Provider of the LLM (e.g., 'Anthropic', 'OpenAI', etc.)"
-              },
-              capabilities: {
-                type: "array",
-                items: {
-                  type: "string"
-                },
-                description: "List of capabilities the LLM has"
-              },
-              metadata: {
-                type: "object",
-                additionalProperties: {
-                  type: "string"
-                },
-                description: "Additional metadata about the LLM"
-              }
-            }
-          }
-        },
-        {
-          name: "get_llm_identity",
-          description: "Get the current identity of the connected LLM",
-          inputSchema: {
-            type: "object",
-            properties: {}
-          }
-        },
-        
-        // Telnet connection tools
-        {
-          name: "connect_telnet",
-          description: "Connect to a telnet server by name or host/port. Supports both plain telnet and SSL/TLS encrypted connections.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              name: {
-                type: "string",
-                description: "Name of a saved connection to connect to"
-              },
-              host: {
-                type: "string",
-                description: "Hostname or IP address of the telnet server"
-              },
-              port: {
-                type: "number",
-                description: "Port number (default is 23)",
-                default: 23
-              },
-              saveName: {
-                type: "string",
-                description: "Name to save this connection as (for new connections)"
-              },
-              tls: {
-                type: "boolean",
-                description: "Enable SSL/TLS encryption (default: false)",
-                default: false
-              },
-              rejectUnauthorized: {
-                type: "boolean",
-                description: "Verify SSL/TLS certificates (default: true when tls is enabled)"
-              },
-              servername: {
-                type: "string",
-                description: "Server name for SNI (Server Name Indication) - defaults to host"
-              }
-            },
-            // No required fields to allow connecting by name OR host
-          }
-        },
-        {
-          name: "send_command",
-          description: "Send a command to the telnet server",
-          inputSchema: {
-            type: "object",
-            properties: {
-              command: {
-                type: "string",
-                description: "Command to send to the telnet server"
-              },
-              timeout: {
-                type: "number",
-                description: "Timeout in milliseconds (default is 30000)",
-                default: 30000
-              },
-              waitAfter: {
-                type: "number",
-                description: "Seconds to wait after sending the command (0-60)",
-                default: 0
-              }
-            },
-            required: ["command"]
-          }
-        },
-        {
-          name: "get_buffer",
-          description: "Get the current response buffer without sending a command",
-          inputSchema: {
-            type: "object",
-            properties: {}
-          }
-        },
-        {
-          name: "connection_status",
-          description: "Get the current status of the telnet connection",
-          inputSchema: {
-            type: "object",
-            properties: {
-              toggleContinuousMode: {
-                type: "boolean",
-                description: "Toggle continuous interaction mode or set to specific value"
-              },
-              defaultDelay: {
-                type: "number",
-                description: "Default delay between commands in seconds (0-60)"
-              }
-            }
-          }
-        },
-        {
-          name: "disconnect_telnet",
-          description: "Disconnect from the telnet server",
-          inputSchema: {
-            type: "object",
-            properties: {}
-          }
-        },
-        {
-          name: "list_saved_connections",
-          description: "List all saved connections",
-          inputSchema: {
-            type: "object",
-            properties: {}
-          }
-        },
-        {
-          name: "get_session_logs",
-          description: "Get telnet session logs with clear session boundaries",
-          inputSchema: {
-            type: "object",
-            properties: {
-              connectionName: {
-                type: "string",
-                description: "Filter logs by connection name"
-              },
-              startDate: {
-                type: "string",
-                description: "Filter logs by start date (ISO format)"
-              },
-              endDate: {
-                type: "string",
-                description: "Filter logs by end date (ISO format)"
-              },
-              sessionId: {
-                type: "string",
-                description: "Filter logs by specific session ID"
-              }
-            }
-          }
-        },
-        {
-          name: "update_connection_memory",
-          description: "Update memory for a saved connection",
-          inputSchema: {
-            type: "object",
-            properties: {
-              connectionName: {
-                type: "string",
-                description: "Name of the saved connection (uses current connection if omitted)"
-              },
-              memory: {
-                type: "string",
-                description: "Memory to save for this connection"
-              }
-            },
-            required: ["memory"]
-          }
-        },
-        {
-          name: "get_connection_memory",
-          description: "Get memory information for a saved connection",
-          inputSchema: {
-            type: "object",
-            properties: {
-              connectionName: {
-                type: "string",
-                description: "Name of the saved connection (uses current connection if omitted)"
-              }
-            }
-          }
-        },
-        {
-          name: "wait",
-          description: "Wait for a specified number of seconds before the next command",
-          inputSchema: {
-            type: "object",
-            properties: {
-              seconds: {
-                type: "number",
-                description: "Number of seconds to wait (0-60)",
-                default: 1
-              }
-            }
-          }
-        },
-        {
-          name: "sequence_commands",
-          description: "Send a sequence of commands with delays between them",
-          inputSchema: {
-            type: "object",
-            properties: {
-              commands: {
-                type: "array",
-                description: "List of commands with wait times",
-                items: {
-                  type: "object",
-                  properties: {
-                    command: {
-                      type: "string",
-                      description: "Command to send"
-                    },
-                    waitAfter: {
-                      type: "number",
-                      description: "Seconds to wait after this command (0-60)",
-                      default: 1
-                    }
-                  },
-                  required: ["command"]
-                }
-              },
-              timeout: {
-                type: "number",
-                description: "Default timeout in milliseconds for all commands",
-                default: 30000
-              }
-            },
-            required: ["commands"]
-          }
-        }
-      ]
-    };
-  });
+// Helper to convert handler results to proper CallToolResult type
+function toCallToolResult(result: { content: { type: string; text: string }[]; isError?: boolean }): CallToolResult {
+  return {
+    content: result.content.map(item => ({
+      type: "text" as const,
+      text: item.text
+    })),
+    isError: result.isError ?? false
+  };
+}
 
-  // Register tool call handler
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: args = {} } = request.params;
-    
-    switch (name) {
-      // Identity tools
-      case "set_llm_identity":
-        return await handleSetLLMIdentityTool(args);
-      case "get_llm_identity":
-        return await handleGetLLMIdentityTool();
-        
-      // Connection tools
-      case "connect_telnet":
-        return await handleConnectTool(args);
-      case "send_command":
-        return await handleCommandTool(args);
-      case "get_buffer":
-        return await handleBufferTool();
-      case "connection_status":
-        return await handleConnectionStatusTool(args);
-      case "disconnect_telnet":
-        return await handleDisconnectTool();
-      case "list_saved_connections":
-        return await handleListSavedConnectionsTool();
-      case "get_session_logs":
-        return await handleSessionLogsTool(args);
-      case "update_connection_memory":
-        return await handleUpdateConnectionMemoryTool(args);
-      case "get_connection_memory":
-        return await handleGetConnectionMemoryTool(args);
-        
-      // Time tools
-      case "wait":
-        return await handleWaitTool(args);
-      case "sequence_commands":
-        return await handleSequenceCommandsTool(args);
-        
-      default:
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Unknown tool: ${name}`
-            }
-          ],
-          isError: true
-        };
-    }
-  });
+// Register all tools with the MCP server
+export function registerTools(server: McpServer): void {
+  // Identity tools
+  server.registerTool(
+    "set_llm_identity",
+    {
+      title: "Set LLM Identity",
+      description: "Set the identity of the connected LLM",
+      inputSchema: {
+        name: z.string().optional().describe("Name of the LLM (e.g., 'Claude', 'GPT', etc.)"),
+        version: z.string().optional().describe("Version of the LLM (e.g., '3.7 Sonnet', '4', etc.)"),
+        provider: z.string().optional().describe("Provider of the LLM (e.g., 'Anthropic', 'OpenAI', etc.)"),
+        capabilities: z.array(z.string()).optional().describe("List of capabilities the LLM has"),
+        metadata: z.record(z.string(), z.string()).optional().describe("Additional metadata about the LLM")
+      }
+    },
+    async (args, _extra) => toCallToolResult(await handleSetLLMIdentityTool(args))
+  );
+
+  server.registerTool(
+    "get_llm_identity",
+    {
+      title: "Get LLM Identity",
+      description: "Get the current identity of the connected LLM"
+    },
+    async () => toCallToolResult(await handleGetLLMIdentityTool())
+  );
+
+  // Telnet connection tools
+  server.registerTool(
+    "connect_telnet",
+    {
+      title: "Connect to Telnet Server",
+      description: "Connect to a telnet server by name or host/port. Supports both plain telnet and SSL/TLS encrypted connections.",
+      inputSchema: {
+        name: z.string().optional().describe("Name of a saved connection to connect to"),
+        host: z.string().optional().describe("Hostname or IP address of the telnet server"),
+        port: z.number().default(23).describe("Port number (default is 23)"),
+        saveName: z.string().optional().describe("Name to save this connection as (for new connections)"),
+        tls: z.boolean().default(false).describe("Enable SSL/TLS encryption (default: false)"),
+        rejectUnauthorized: z.boolean().optional().describe("Verify SSL/TLS certificates (default: true when tls is enabled)"),
+        servername: z.string().optional().describe("Server name for SNI (Server Name Indication) - defaults to host")
+      }
+    },
+    async (args, _extra) => toCallToolResult(await handleConnectTool(args))
+  );
+
+  server.registerTool(
+    "send_command",
+    {
+      title: "Send Telnet Command",
+      description: "Send a command to the telnet server",
+      inputSchema: {
+        command: z.string().describe("Command to send to the telnet server"),
+        timeout: z.number().default(30000).describe("Timeout in milliseconds (default is 30000)"),
+        waitAfter: z.number().default(0).describe("Seconds to wait after sending the command (0-60)")
+      }
+    },
+    async (args, _extra) => toCallToolResult(await handleCommandTool(args))
+  );
+
+  server.registerTool(
+    "get_buffer",
+    {
+      title: "Get Response Buffer",
+      description: "Get the current response buffer without sending a command"
+    },
+    async () => toCallToolResult(await handleBufferTool())
+  );
+
+  server.registerTool(
+    "connection_status",
+    {
+      title: "Get Connection Status",
+      description: "Get the current status of the telnet connection",
+      inputSchema: {
+        toggleContinuousMode: z.boolean().optional().describe("Toggle continuous interaction mode or set to specific value"),
+        defaultDelay: z.number().optional().describe("Default delay between commands in seconds (0-60)")
+      }
+    },
+    async (args, _extra) => toCallToolResult(await handleConnectionStatusTool(args))
+  );
+
+  server.registerTool(
+    "disconnect_telnet",
+    {
+      title: "Disconnect from Server",
+      description: "Disconnect from the telnet server"
+    },
+    async () => toCallToolResult(await handleDisconnectTool())
+  );
+
+  server.registerTool(
+    "list_saved_connections",
+    {
+      title: "List Saved Connections",
+      description: "List all saved connections"
+    },
+    async () => toCallToolResult(await handleListSavedConnectionsTool())
+  );
+
+  server.registerTool(
+    "get_session_logs",
+    {
+      title: "Get Session Logs",
+      description: "Get telnet session logs with clear session boundaries",
+      inputSchema: {
+        connectionName: z.string().optional().describe("Filter logs by connection name"),
+        startDate: z.string().optional().describe("Filter logs by start date (ISO format)"),
+        endDate: z.string().optional().describe("Filter logs by end date (ISO format)"),
+        sessionId: z.string().optional().describe("Filter logs by specific session ID")
+      }
+    },
+    async (args, _extra) => toCallToolResult(await handleSessionLogsTool(args))
+  );
+
+  server.registerTool(
+    "update_connection_memory",
+    {
+      title: "Update Connection Memory",
+      description: "Update memory for a saved connection",
+      inputSchema: {
+        connectionName: z.string().optional().describe("Name of the saved connection (uses current connection if omitted)"),
+        memory: z.string().describe("Memory to save for this connection")
+      }
+    },
+    async (args, _extra) => toCallToolResult(await handleUpdateConnectionMemoryTool(args))
+  );
+
+  server.registerTool(
+    "get_connection_memory",
+    {
+      title: "Get Connection Memory",
+      description: "Get memory information for a saved connection",
+      inputSchema: {
+        connectionName: z.string().optional().describe("Name of the saved connection (uses current connection if omitted)")
+      }
+    },
+    async (args, _extra) => toCallToolResult(await handleGetConnectionMemoryTool(args))
+  );
+
+  // Time tools
+  server.registerTool(
+    "wait",
+    {
+      title: "Wait/Delay",
+      description: "Wait for a specified number of seconds before the next command",
+      inputSchema: {
+        seconds: z.number().default(1).describe("Number of seconds to wait (0-60)")
+      }
+    },
+    async (args, _extra) => toCallToolResult(await handleWaitTool(args))
+  );
+
+  server.registerTool(
+    "sequence_commands",
+    {
+      title: "Execute Command Sequence",
+      description: "Send a sequence of commands with delays between them",
+      inputSchema: {
+        commands: z.array(
+          z.object({
+            command: z.string().describe("Command to send"),
+            waitAfter: z.number().default(1).describe("Seconds to wait after this command (0-60)")
+          })
+        ).describe("List of commands with wait times"),
+        timeout: z.number().default(30000).describe("Default timeout in milliseconds for all commands")
+      }
+    },
+    async (args, _extra) => toCallToolResult(await handleSequenceCommandsTool(args))
+  );
 }

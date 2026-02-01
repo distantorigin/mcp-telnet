@@ -1,6 +1,5 @@
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { ListResourcesRequestSchema, ListPromptsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { loadConfigurations, loadSavedConnections } from './config/loader.js';
 import { startInteractiveCLI } from './cli/index.js';
 import { reconnectToActiveConnections } from './connection/index.js';
@@ -11,28 +10,16 @@ import { initializeIdentity, getLLMIdentity, isLLMIdentified } from './config/id
 
 /**
  * Initialize and start the MCP server
- * @returns {Promise<Server>} The initialized MCP server instance
+ * @returns {Promise<McpServer>} The initialized MCP server instance
  */
 export async function startServer() {
   // Get the package version
   const version = getPackageVersion();
-  
+
   // Create MCP server
-  const server = new Server({
+  const server = new McpServer({
     name: "telnet-mcp-server",
     version: version
-  }, {
-    capabilities: {
-      tools: {
-        listChanged: true
-      },
-      resources: {
-        listChanged: true
-      },
-      prompts: {
-        listChanged: true
-      }
-    }
   });
 
   // Load configurations and saved connections
@@ -70,16 +57,7 @@ Example:
   
   // Register all tools
   registerTools(server);
-  
-  // Add handlers for resources and prompts
-  server.setRequestHandler(ListResourcesRequestSchema, async () => {
-    return { resources: [] };
-  });
-  
-  server.setRequestHandler(ListPromptsRequestSchema, async () => {
-    return { prompts: [] };
-  });
-  
+
   // Start interactive CLI
   startInteractiveCLI();
   
