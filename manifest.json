@@ -96,7 +96,9 @@
     }
   ],
   "compatibility": {
-    "node": ">=20.0.0"
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
   },
   "user_config": {
     "default_timeout": {
@@ -104,24 +106,24 @@
       "title": "Default Command Timeout",
       "description": "Default timeout for telnet commands in milliseconds",
       "default": 30000,
-      "minimum": 1000,
-      "maximum": 300000
+      "min": 1000,
+      "max": 300000
     },
     "keep_alive_interval": {
       "type": "number",
       "title": "Keep-Alive Interval",
       "description": "Interval for keep-alive packets in milliseconds",
       "default": 15000,
-      "minimum": 5000,
-      "maximum": 60000
+      "min": 5000,
+      "max": 60000
     },
     "max_reconnect_attempts": {
       "type": "number", 
       "title": "Max Reconnection Attempts",
       "description": "Maximum number of automatic reconnection attempts",
       "default": 3,
-      "minimum": 0,
-      "maximum": 10
+      "min": 0,
+      "max": 10
     }
   }
 }
