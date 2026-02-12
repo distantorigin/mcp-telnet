@@ -114,7 +114,9 @@ Returns an array of saved connections with their details.
 
 ### send_command
 
-Sends a command to the telnet server and returns the response.
+Sends a command to the telnet server and returns the response. Supports two modes:
+
+**Default mode** — returns after a fixed buffer wait (500ms):
 
 ```
 send_command with: {
@@ -124,10 +126,29 @@ send_command with: {
 }
 ```
 
+**waitFor mode** — polls the response buffer for a regex pattern and returns as soon as it matches. Much faster than fixed waits because it resolves immediately when the expected output appears:
+
+```
+send_command with: {
+  "command": "look",
+  "waitFor": "You can go"
+}
+```
+
+More examples of `waitFor` patterns:
+
+```
+send_command with: { "command": "MAP POI", "waitFor": "Enter your selection" }
+send_command with: { "command": "WALK Town Square", "waitFor": "You've arrived" }
+send_command with: { "command": "CREDITS", "waitFor": "credits" }
+send_command with: { "command": "SALVAGE", "waitFor": "begin scanning|No debris" }
+```
+
 Parameters:
 - `command`: The command to send (required)
 - `timeout`: Timeout in milliseconds (defaults to 30000)
-- `waitAfter`: Seconds to wait after sending the command (defaults to 0)
+- `waitAfter`: Seconds to wait after sending the command (defaults to 0, ignored if `waitFor` is set)
+- `waitFor`: Regex pattern to wait for in the response buffer (optional, case-insensitive). When set, the command returns as soon as the pattern is matched instead of waiting a fixed delay. If the pattern is not matched before the timeout, the accumulated buffer is returned anyway with a note that the pattern was not matched.
 
 ### get_buffer
 
@@ -154,7 +175,9 @@ Parameters:
 
 ### sequence_commands
 
-Sends a sequence of commands with specified delays between them.
+Sends a sequence of commands with specified delays or pattern-based waits between them. Each command can use either a fixed delay (`waitAfter`) or a regex pattern (`waitFor`) to determine when to proceed.
+
+**With fixed delays:**
 
 ```
 sequence_commands with: {
@@ -167,10 +190,35 @@ sequence_commands with: {
 }
 ```
 
+**With waitFor patterns (faster and more reliable):**
+
+```
+sequence_commands with: {
+  "commands": [
+    { "command": "BUY 14", "waitFor": "Enter your selection" },
+    { "command": "5", "waitFor": "Continue with purchase" },
+    { "command": "yes", "waitFor": "credits" }
+  ]
+}
+```
+
+**Mixed mode (some commands use patterns, others use delays):**
+
+```
+sequence_commands with: {
+  "commands": [
+    { "command": "north", "waitFor": "You can go" },
+    { "command": "look", "waitAfter": 1 },
+    { "command": "get treasure", "waitFor": "You pick up" }
+  ]
+}
+```
+
 Parameters:
 - `commands`: Array of command objects with the following structure:
   - `command`: The command to send (required)
-  - `waitAfter`: Seconds to wait after this command (defaults to 1)
+  - `waitAfter`: Seconds to wait after this command (defaults to 1, ignored if `waitFor` is set)
+  - `waitFor`: Regex pattern to wait for before proceeding to the next command (optional, overrides `waitAfter`)
 - `timeout`: Default timeout in milliseconds for all commands (defaults to 30000)
 
 ## Logging and Memory

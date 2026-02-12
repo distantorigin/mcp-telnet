@@ -1,6 +1,17 @@
 # Changelog
 
-## 0.3.0 (Current)
+## 0.5.0 (Current)
+- Added `waitFor` parameter to `send_command` for pattern-based response waiting
+  - Polls the response buffer for a regex match instead of using fixed delays
+  - Returns immediately when the expected output appears, dramatically reducing latency
+  - Falls back gracefully on timeout, returning whatever has accumulated
+  - Case-insensitive regex matching with full pattern syntax support
+- Added `waitFor` support to `sequence_commands` for per-command pattern waits
+  - Each command in a sequence can independently use `waitFor` or `waitAfter`
+  - Enables multi-step interactions (e.g., buy flows, menu navigation) in a single tool call
+- New internal `sendCommandWaitFor()` function in the connection layer
+
+## 0.3.0
 - Improved error handling with custom error classes
 - Enhanced logging system with configurable log levels
 - Centralized configuration system

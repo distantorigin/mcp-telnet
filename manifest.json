@@ -4,7 +4,7 @@
   "version": "0.6.0",
   "display_name": "MCP Telnet Server",
   "description": "MCP server for interacting with telnet-accessible systems like MUDs, BBSs, and legacy servers",
-  "long_description": "# MCP Telnet Server\n\nThe MCP Telnet Server enables Claude to connect to and interact with telnet-accessible systems including:\n\n- Multi-User Dungeons (MUDs)\n- Bulletin Board Systems (BBSs) \n- Legacy network services\n- Terminal-based applications\n- Network equipment consoles\n\n## Features\n\n- **Secure Connections**: Identity verification and input sanitization\n- **Session Management**: Automatic reconnection and session logging\n- **Command Sequencing**: Send multiple commands with timing controls\n- **Connection Memory**: Save frequently used connections\n- **Robust Error Handling**: Buffer overflow protection and timeout management\n\n## Tools Available\n\n- `connect_telnet`: Connect to telnet servers by name or host/port\n- `send_command`: Send commands with configurable timeouts\n- `get_buffer`: Retrieve current response buffer\n- `connection_status`: Check connection state and toggle continuous mode\n- `disconnect_telnet`: Clean disconnect from servers\n- `list_saved_connections`: View saved connection profiles\n- `get_session_logs`: Retrieve session history\n- `update_connection_memory`: Save notes about connections\n- `get_connection_memory`: Retrieve connection notes\n- `wait`: Pause execution for specified time\n- `sequence_commands`: Execute multiple commands with delays\n- `set_llm_identity`: Configure LLM identity for server identification\n- `get_llm_identity`: View current LLM identity\n\n## Security\n\n- Input sanitization prevents command injection\n- Buffer overflow protection\n- Bounded response buffers (256KB limit)\n- Configurable timeout limits (1s - 5min)\n- Connection rate limiting",
+  "long_description": "# MCP Telnet Server\n\nThe MCP Telnet Server enables Claude to connect to and interact with telnet-accessible systems including:\n\n- Multi-User Dungeons (MUDs)\n- Bulletin Board Systems (BBSs) \n- Legacy network services\n- Terminal-based applications\n- Network equipment consoles\n\n## Features\n\n- **Secure Connections**: Identity verification and input sanitization\n- **Session Management**: Automatic reconnection and session logging\n- **Smart Response Waiting**: Pattern-based `waitFor` returns as soon as expected output appears\n- **Command Sequencing**: Send multiple commands with timing controls or per-command patterns\n- **Connection Memory**: Save frequently used connections\n- **Robust Error Handling**: Buffer overflow protection and timeout management\n\n## Tools Available\n\n- `connect_telnet`: Connect to telnet servers by name or host/port\n- `send_command`: Send commands with configurable timeouts or regex-based `waitFor` patterns\n- `get_buffer`: Retrieve current response buffer\n- `connection_status`: Check connection state and toggle continuous mode\n- `disconnect_telnet`: Clean disconnect from servers\n- `list_saved_connections`: View saved connection profiles\n- `get_session_logs`: Retrieve session history\n- `update_connection_memory`: Save notes about connections\n- `get_connection_memory`: Retrieve connection notes\n- `wait`: Pause execution for specified time\n- `sequence_commands`: Execute multiple commands with delays or pattern-based waits\n- `set_llm_identity`: Configure LLM identity for server identification\n- `get_llm_identity`: View current LLM identity\n\n## Security\n\n- Input sanitization prevents command injection\n- Buffer overflow protection\n- Bounded response buffers (256KB limit)\n- Configurable timeout limits (1s - 5min)\n- Connection rate limiting",
   "author": {
     "name": "distantorigin",
     "url": "https://github.com/distantorigin/mcp-telnet"
@@ -35,8 +35,8 @@
       "description": "Connect to a telnet server by name or host/port"
     },
     {
-      "name": "send_command", 
-      "description": "Send a command to the telnet server"
+      "name": "send_command",
+      "description": "Send a command to the telnet server with optional waitFor regex pattern for fast response matching"
     },
     {
       "name": "get_buffer",
@@ -72,7 +72,7 @@
     },
     {
       "name": "sequence_commands",
-      "description": "Send a sequence of commands with delays between them"
+      "description": "Send a sequence of commands with delays or pattern-based waits between them"
     },
     {
       "name": "set_llm_identity",

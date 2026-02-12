@@ -82,11 +82,12 @@ export function registerTools(server: McpServer): void {
     "send_command",
     {
       title: "Send Telnet Command",
-      description: "Send a command to the telnet server",
+      description: "Send a command to the telnet server. Supports an optional 'waitFor' regex pattern: instead of returning after a fixed delay, the server polls the response buffer and returns as soon as the pattern is matched. This is much faster than blind waits. Example: send_command({command: 'LOOK', waitFor: 'You can go'}) returns as soon as room exits appear in the output.",
       inputSchema: {
         command: z.string().describe("Command to send to the telnet server"),
-        timeout: z.number().default(30000).describe("Timeout in milliseconds (default is 30000)"),
-        waitAfter: z.number().default(0).describe("Seconds to wait after sending the command (0-60)")
+        timeout: z.number().default(30000).describe("Timeout in milliseconds (default: 30000 for normal mode, 2000 for waitFor mode)"),
+        waitAfter: z.number().default(0).describe("Seconds to wait after sending the command (0-60). Ignored if waitFor is set."),
+        waitFor: z.string().optional().describe("Regex pattern to wait for in the response buffer. The command returns as soon as this pattern is matched (case-insensitive). Much faster than fixed waits. Examples: 'You can go' (room loaded), 'Enter your selection' (menu appeared), 'credits' (balance shown), 'You\\'ve arrived' (walking complete).")
       }
     },
     async (args, _extra) => toCallToolResult(await handleCommandTool(args))
@@ -189,12 +190,13 @@ export function registerTools(server: McpServer): void {
     "sequence_commands",
     {
       title: "Execute Command Sequence",
-      description: "Send a sequence of commands with delays between them",
+      description: "Send a sequence of commands with delays or pattern-based waits between them. Each command can use either a fixed delay (waitAfter) or a regex pattern (waitFor) to determine when to proceed to the next command. Using waitFor is much faster than fixed delays.",
       inputSchema: {
         commands: z.array(
           z.object({
             command: z.string().describe("Command to send"),
-            waitAfter: z.number().default(1).describe("Seconds to wait after this command (0-60)")
+            waitAfter: z.number().default(1).describe("Seconds to wait after this command (0-60). Ignored if waitFor is set."),
+            waitFor: z.string().optional().describe("Regex pattern to wait for before proceeding to the next command. Overrides waitAfter. Example: 'You can go' to wait for room description.")
           })
         ).describe("List of commands with wait times"),
         timeout: z.number().default(30000).describe("Default timeout in milliseconds for all commands")

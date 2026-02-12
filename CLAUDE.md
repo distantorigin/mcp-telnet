@@ -58,7 +58,8 @@ This is an MCP (Model Context Protocol) server that enables LLMs to interact wit
 
 **Command Timing**
 - Built-in anti-spam protection with configurable delays
-- Sequence commands allow precise timing between multiple operations
+- `waitFor` parameter on `send_command` and `sequence_commands` enables regex pattern-based waiting — polls the response buffer and returns as soon as the pattern matches, eliminating blind waits
+- Sequence commands allow precise timing between multiple operations with per-command `waitFor` or `waitAfter`
 - Default delays prevent server-side throttling
 
 ### Data Storage

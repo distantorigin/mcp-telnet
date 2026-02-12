@@ -8,8 +8,9 @@ import {
   getResponseBuffer
 } from './state.js';
 import { savedConnections } from '../config/index.js';
-import { 
-  DEFAULT_TIMEOUT, 
+import {
+  DEFAULT_TIMEOUT,
+  WAITFOR_DEFAULT_TIMEOUT,
   KEEP_ALIVE_INTERVAL,
   MAX_RECONNECT_ATTEMPTS,
   RECONNECT_INITIAL_DELAY,
@@ -561,6 +562,109 @@ export async function reconnectToActiveConnections(): Promise<void> {
       }
     }
   }
+}
+
+// Send a command and wait until a regex pattern appears in the response buffer.
+//
+// Instead of waiting a fixed 500ms, this polls the buffer every `pollInterval` ms
+// for a match against the provided regex pattern. Resolves as soon as the pattern
+// is found, or when the timeout expires (returning whatever has accumulated).
+// This eliminates blind waits and lets the LLM agent react as fast as the server responds.
+export async function sendCommandWaitFor(
+  command: string,
+  pattern: string,
+  timeout = WAITFOR_DEFAULT_TIMEOUT,
+  pollInterval = 100
+): Promise<{ success: boolean, response: string, matched: boolean }> {
+  return new Promise((resolve) => {
+    if (!telnetClient || telnetClient.destroyed || !connectionState.isConnected) {
+      const error = new NotConnectedError();
+      resolve({ success: false, response: error.message, matched: false });
+      return;
+    }
+
+    try {
+      // Sanitize the command for security
+      const sanitizedCommand = sanitizeCommand(command);
+      if (sanitizedCommand !== command) {
+        log(`Command sanitized: removed ${command.length - sanitizedCommand.length} characters`, 'warn');
+      }
+
+      // Compile the regex pattern
+      let regex: RegExp;
+      try {
+        regex = new RegExp(pattern, 'si');
+      } catch (regexError) {
+        resolve({ success: false, response: `Invalid regex pattern: ${pattern}`, matched: false });
+        return;
+      }
+
+      // Clear the buffer first
+      clearResponseBuffer();
+      setConnectionState({ lastCommand: sanitizedCommand });
+
+      // Send the sanitized command
+      telnetClient.write(`${sanitizedCommand}\r\n`);
+      log(`Sent (waitFor "${pattern}"): ${sanitizeForLogging(sanitizedCommand)}`);
+      logSessionEvent(SessionEventType.COMMAND, `Sent command with waitFor pattern "${pattern}" (${sanitizedCommand.length} bytes):\n${sanitizeForLogging(sanitizedCommand)}`);
+
+      let matched = false;
+      let timedOut = false;
+
+      // Set up the overall timeout
+      const timeoutId = setTimeout(() => {
+        timedOut = true;
+      }, timeout);
+
+      // Poll the buffer for the pattern
+      const pollId = setInterval(() => {
+        const buffer = getResponseBuffer();
+
+        if (regex.test(buffer)) {
+          // Pattern found!
+          matched = true;
+          clearTimeout(timeoutId);
+          clearInterval(pollId);
+
+          setConnectionState({ lastResponse: buffer });
+          logSessionEvent(
+            SessionEventType.RESPONSE,
+            `Received response (pattern matched "${pattern}", ${buffer.length} bytes):\n${buffer}`
+          );
+          log(`waitFor matched pattern "${pattern}" after ${buffer.length} bytes`);
+
+          const continuousModeEnabled = connectionState.continuousEngagementActive;
+          let formattedResponse = buffer;
+          if (continuousModeEnabled) {
+            formattedResponse = `${buffer}\n\n[Waiting for your next command or instruction...]`;
+          }
+
+          resolve({ success: true, response: formattedResponse, matched: true });
+        } else if (timedOut) {
+          // Timeout reached without pattern match
+          clearInterval(pollId);
+
+          setConnectionState({ lastResponse: buffer });
+          logSessionEvent(
+            SessionEventType.RESPONSE,
+            `Received response (pattern "${pattern}" NOT matched, timeout after ${timeout}ms, ${buffer.length} bytes):\n${buffer}`
+          );
+          log(`waitFor timed out after ${timeout}ms without matching "${pattern}", got ${buffer.length} bytes`);
+
+          resolve({
+            success: true,
+            response: buffer,
+            matched: false
+          });
+        }
+      }, pollInterval);
+
+    } catch (error) {
+      const errorMessage = formatError(error);
+      log(`Error sending command (waitFor): ${errorMessage}`, 'error');
+      resolve({ success: false, response: `Error sending command: ${errorMessage}`, matched: false });
+    }
+  });
 }
 
 // Get telnet client status

@@ -1,9 +1,10 @@
 // Connection module exports
-export { 
-  connect, 
-  disconnect, 
-  reconnectToActiveConnections, 
+export {
+  connect,
+  disconnect,
+  reconnectToActiveConnections,
   sendCommand,
+  sendCommandWaitFor,
   isTelnetClientConnected
 } from './telnet.js';
 export { 

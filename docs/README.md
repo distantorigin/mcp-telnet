@@ -70,16 +70,21 @@ MCP-Telnet provides various tools to manage telnet connections. Here are the mos
   connect_telnet with: { "host": "mud.example.com", "port": 4000 }
   ```
 
-- **Command Sending**:
+- **Command Sending** (with pattern-based waiting for fast responses):
+  ```
+  send_command with: { "command": "look", "waitFor": "You can go" }
+  ```
+
+- **Command Sending** (with fixed delay):
   ```
   send_command with: { "command": "look", "waitAfter": 2 }
   ```
 
-- **Command Sequences**:
+- **Command Sequences** (with smart pattern waits):
   ```
   sequence_commands with: {
     "commands": [
-      { "command": "north", "waitAfter": 1 },
+      { "command": "north", "waitFor": "You can go" },
       { "command": "look", "waitAfter": 0 }
     ]
   }
@@ -93,10 +98,11 @@ MUDs and telnet servers often need time to process commands. Proper timing also 
 
 MCP-Telnet provides several ways to handle timing:
 
-1. Command with Wait: Add delays after specific commands
-2. Command Sequences: Define precise timing between multiple commands
-3. Default Delays: Set standard delays for all commands
-4. Manual Waits: Insert explicit pauses between operations
+1. Pattern-Based Waiting (`waitFor`): Wait for specific output patterns using regex — the fastest option, returns as soon as the expected response appears
+2. Command with Wait: Add fixed delays after specific commands
+3. Command Sequences: Define precise timing or per-command patterns between multiple operations
+4. Default Delays: Set standard delays for all commands
+5. Manual Waits: Insert explicit pauses between operations
 
 This flexibility ensures smooth interactions while preventing issues like:
 - Server-side command throttling

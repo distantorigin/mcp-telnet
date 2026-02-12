@@ -18,6 +18,10 @@ export const RECONNECT_INITIAL_DELAY = 5000;
 // Time to wait for response buffer to accumulate, in milliseconds
 export const RESPONSE_BUFFER_WAIT = 500;
 
+// Default timeout for waitFor pattern matching in milliseconds (2 seconds)
+// Much shorter than DEFAULT_TIMEOUT since patterns should match quickly
+export const WAITFOR_DEFAULT_TIMEOUT = 2000;
+
 // Telnet protocol constants
 export const TELNET = {
   // Command codes
