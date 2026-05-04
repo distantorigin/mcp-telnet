@@ -35,12 +35,12 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.26.0",
-    "zod": "^4.3.6"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^25.2.2",
+    "@types/node": "^25.6.0",
     "shx": "^0.4.0",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   }
 }
