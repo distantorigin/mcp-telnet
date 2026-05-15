@@ -211,8 +211,12 @@ export async function connect(
       startKeepAlive();
 
       telnetClient.on('data', (data) => {
-        // Check for and handle telnet commands
-        const processedData = processTelnetCommands(data);
+        // Check for and handle telnet commands.
+        // The socket is left in raw byte mode (no setEncoding() call), so
+        // `data` is always a Buffer at runtime; the union with `string`
+        // only exists in the @types/node signature.
+        const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+        const processedData = processTelnetCommands(buf);
         
         if (processedData.length > 0) {
           const text = processedData.toString();
