@@ -548,18 +548,27 @@ export async function reconnectToActiveConnections(): Promise<void> {
       passphrase: conn.passphrase
     };
     
-    try {
-      await connect(conn.host, conn.port, conn.name, tlsOptions);
-    } catch (error) {
-      const errorMessage = formatError(error);
-      log(`Failed to reconnect: ${errorMessage}`, 'error');
-      
-      // Mark as inactive
+    // Mark the connection inactive on failure so a host that has gone away
+    // isn't retried on every subsequent startup. `connect` reports failure by
+    // resolving rather than throwing, so both paths have to be handled.
+    const markInactive = () => {
       const index = savedConnections.findIndex((c: SavedConnection) => c.name === conn.name);
       if (index !== -1) {
         savedConnections[index].isActive = false;
         saveSavedConnections();
       }
+    };
+
+    try {
+      const result = await connect(conn.host, conn.port, conn.name, tlsOptions);
+      if (!result.success) {
+        log(`Failed to reconnect: ${result.message}`, 'error');
+        markInactive();
+      }
+    } catch (error) {
+      const errorMessage = formatError(error);
+      log(`Failed to reconnect: ${errorMessage}`, 'error');
+      markInactive();
     }
   }
 }
