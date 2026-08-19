@@ -60,17 +60,24 @@ Example:
 
   // Start interactive CLI
   startInteractiveCLI();
-  
-  // Only try to reconnect if identity is set
-  if (isLLMIdentified()) {
-    // Connect to any active connections
-    await reconnectToActiveConnections();
-  }
-  
-  // Start the MCP server
+
+  // Start the MCP server before touching the network. Restoring a previous
+  // telnet connection can stall for as long as the socket timeout when the
+  // host is gone, and blocking here means the client never sees a response
+  // to `initialize` and reports the server as failed to start.
   const transport = new StdioServerTransport();
   await server.connect(transport);
   log("MCP-Telnet server running on stdio");
-  
+
+  // Only try to reconnect if identity is set. This runs in the background so
+  // an unreachable host degrades to "not connected" instead of taking the
+  // whole server down with it.
+  if (isLLMIdentified()) {
+    reconnectToActiveConnections().catch(error => {
+      const message = error instanceof Error ? error.message : String(error);
+      log(`Background reconnect failed: ${message}`, 'error');
+    });
+  }
+
   return server;
 }
